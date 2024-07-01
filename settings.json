@@ -1,5 +1,5 @@
 {
-    "road_function": "def road_function(x):\n    return np.array([5 * (1-np.cos(0.4 * x)), x])\n",
+    "road_function": "    def road_function(x):\n        return np.array([5 * (1-np.cos(0.4 * x)), x])\n",
     "road_width": 2,
     "road_length": 20,
     "closed": false,
@@ -7,5 +7,13 @@
     "resolution": 0.2,
     "max_sensor_range": 3,
     "action_dim": 5,
-    "num_episodes": 200
+    "num_episodes": 1000,
+    "Action_value_scaling": 0.2,
+    "Action_value": [
+        -0.2,
+        -0.1,
+        0.0,
+        0.1,
+        0.2
+    ]
 }

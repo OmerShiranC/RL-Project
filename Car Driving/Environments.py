@@ -46,10 +46,10 @@ class Settings:
         # car settings
 
         # car initail position
-        self.init_car_x = 0
+        self.init_car_x = 4
         self.init_car_y = 0
         self.init_car_theta = 0
-        self.init_car_speed = .2
+        self.init_car_speed = .5
 
 
 class RoadEnv:
@@ -128,8 +128,7 @@ class RoadEnv:
 
         dx = road_direction_x(t)
         dy = road_direction_y(t)
-        direction = np.arctan2(dy, dx)
-
+        direction = np.arctan2(dx, dy)% (2 * np.pi)
         return distance, direction, False
 
 class CarEnv:
@@ -203,14 +202,20 @@ settings = Settings()
 roadenv = RoadEnv(settings)
 carenv = CarEnv(settings)
 # move the car
-for i in range(5):
-    carenv.move(np.random.uniform(-.5, .5))
+for i in range(50):
+    action = input(f"Step number {i+1}, choose action: ")
+    if action == 'q':
+        break
+    carenv.move(float(action))
     distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
     distance, direction, out_of_road = roadenv.road_direction_and_terminal( distance, closest_segment, closest_t)
     if not  out_of_road:
-        print(f"Distance: {distance}, Direction: {direction}, carenv.theta: {carenv.theta}, Out of road: {out_of_road}")
-        print(f"                    , Direction: {abs(direction - carenv.theta)}")
+        #round the direction to 2 decimal points
+        print(f"   Distance: {distance:.2f}, Direction: {direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(direction - carenv.theta):.2f}, Out of road: {out_of_road}")
+        print(f" ")
 
 
 
-Visualize(roadenv, carenv, settings)
+
+
+    Visualize(roadenv, carenv, settings)

@@ -1,5 +1,6 @@
 import math
 import sympy as sp
+from sympy import N
 import numpy as np
 from scipy.optimize import minimize_scalar
 
@@ -19,8 +20,8 @@ class Settings:
                 't_end': 5
             },
             {
-                'x': lambda t: 5 + 3 * sp.sin(np.pi * (t - 5)),
-                'y': lambda t: 3+3 * sp.cos(np.pi * (t - 5)),
+                'x': lambda t: 5 + 3 * sp.sin(np.pi * (t - 4.9)),
+                'y': lambda t: 3+3 * sp.cos(np.pi * (t - 4.9)),
                 't_start': 5,
                 't_end': 6
             },
@@ -120,16 +121,22 @@ class RoadEnv:
         x = sp.sympify(segment['x'](self.t))
         y = sp.sympify(segment['y'](self.t))
 
-        # Calculate the direction of the road at the closest point
-        dx_dt = sp.diff(x, self.t)
-        dy_dt = sp.diff(y, self.t)
-        road_direction_x = sp.lambdify(self.t, dx_dt, 'numpy')
-        road_direction_y = sp.lambdify(self.t, dy_dt, 'numpy')
+#         # Calculate the direction of the road at the closest point
+#         dx_dt = sp.diff(x, self.t)
+#         dy_dt = sp.diff(y, self.t)
+#         road_direction_x = sp.lambdify(self.t, dx_dt, 'numpy')
+#         road_direction_y = sp.lambdify(self.t, dy_dt, 'numpy')
 
-        dx = road_direction_x(t)
-        dy = road_direction_y(t)
-        direction = np.arctan2(dx, dy)% (2 * np.pi)
-        return distance, direction, False
+#         dx = road_direction_x(t)
+#         dy = road_direction_y(t)
+
+        dx = self.settings.road_segments[segment]['x'](t+1)-self.settings.road_segments[segment]['x'](t)
+        dy = self.settings.road_segments[segment]['y'](t+1)-self.settings.road_segments[segment]['y'](t)
+        
+        print(f' dx={dx:.2f},dy={dy:.2f}, {type(dx)}, {type(dy)}')
+        direction = np.pi/2-np.arctan2(dx,dy)
+        print(f' dx={dx:.2f},dy={dy:.2f}, direction = {direction:.2f}')
+        return distance, np.where(direction < 0, direction + 2 * np.pi, direction), False
 
 class CarEnv:
     def __init__(self, settings):
@@ -208,11 +215,14 @@ for i in range(50):
         break
     carenv.move(float(action))
     distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
-    distance, direction, out_of_road = roadenv.road_direction_and_terminal( distance, closest_segment, closest_t)
+    distance, direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
     if not  out_of_road:
         #round the direction to 2 decimal points
         print(f"   Distance: {distance:.2f}, Direction: {direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(direction - carenv.theta):.2f}, Out of road: {out_of_road}")
         print(f" ")
+    if i>2:
+        plt.close('all')
+        
 
 
 

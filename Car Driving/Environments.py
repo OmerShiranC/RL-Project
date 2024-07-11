@@ -17,25 +17,25 @@ class Settings:
                 'x': lambda t: t,
                 'y': lambda t: 0.000001*t,
                 't_start': 0,
-                't_end': 5
+                't_end': 10
             },
             {
-                'x': lambda t: 5 + 3 * sp.sin(np.pi * (t - 4.9)),
-                'y': lambda t: 3+3 * sp.cos(np.pi * (t - 4.9)),
-                't_start': 5,
-                't_end': 6
-            },
-            {
-                'x': lambda t: 5 - (t - 6),
-                'y': lambda t: 6-0.000001*t,
-                't_start': 6,
+                'x': lambda t: 10 + 5 * sp.sin(np.pi * (t - 10)),
+                'y': lambda t: 5-5 * sp.cos(np.pi * (t - 10)),
+                't_start': 10,
                 't_end': 11
             },
             {
-                'x': lambda t: 3 * sp.sin(np.pi * (t - 10)),
-                'y': lambda t: 3 + 3 * sp.cos(np.pi * (t - 10)),
+                'x': lambda t: 21-t,
+                'y': lambda t: 8 +2*sp.cos(np.pi * (t - 11)/10),
                 't_start': 11,
-                't_end': 12
+                't_end': 21
+            },
+            {
+                'x': lambda t: 3 * sp.sin(np.pi * (t - 20)),
+                'y': lambda t: 3 - 3 * sp.cos(np.pi * (t - 20)),
+                't_start': 21,
+                't_end': 22
             }
         ]
         self.road_width    = 1
@@ -50,7 +50,27 @@ class Settings:
         self.init_car_x = 4
         self.init_car_y = 0
         self.init_car_theta = 0
-        self.init_car_speed = .5
+        self.init_car_speed = .25
+        
+        #sensors
+        self.n_sensors = 7
+        self.resolution = .3
+        self.max_sensor_range = 3
+        
+        #actions
+        self.action_dim = 7  # Actions for steering
+        self.actions = 0.5*np.linspace(-1,1,self.action_dim)
+        
+        ## NN
+        self.state_dim = self.n_sensors  * self.max_sensor_range / self.resolution   # State dimension is the number of sensor
+        self.Hidden_layers = [32, 16]
+        self.gamma  = .95
+        self.alpha  = .95
+                 
+        # training
+        self.epsilon = 0.05
+        self.lr      = 0.001
+        self.num_episodes = 100
 
 
 class RoadEnv:
@@ -117,26 +137,31 @@ class RoadEnv:
         if distance > self.settings.road_width / 2:
             return None, None, True
 
+        # Calculate the direction of the road at the closest point
         segment = self.settings.road_segments[segment]
-        x = sp.sympify(segment['x'](self.t))
-        y = sp.sympify(segment['y'](self.t))
+        x_func = sp.lambdify(self.t, segment['x'](self.t), 'numpy')
+        y_func = sp.lambdify(self.t, segment['y'](self.t), 'numpy')
 
-#         # Calculate the direction of the road at the closest point
-#         dx_dt = sp.diff(x, self.t)
-#         dy_dt = sp.diff(y, self.t)
-#         road_direction_x = sp.lambdify(self.t, dx_dt, 'numpy')
-#         road_direction_y = sp.lambdify(self.t, dy_dt, 'numpy')
-
-#         dx = road_direction_x(t)
-#         dy = road_direction_y(t)
-
-        dx = self.settings.road_segments[segment]['x'](t+1)-self.settings.road_segments[segment]['x'](t)
-        dy = self.settings.road_segments[segment]['y'](t+1)-self.settings.road_segments[segment]['y'](t)
+        dx_dt = sp.diff(segment['x'](self.t), self.t)
+        dy_dt = sp.diff(segment['y'](self.t), self.t)
         
-        print(f' dx={dx:.2f},dy={dy:.2f}, {type(dx)}, {type(dy)}')
+        dx_func = sp.lambdify(self.t, dx_dt, 'numpy')
+        dy_func = sp.lambdify(self.t, dy_dt, 'numpy')
+
+        dx = dx_func(t)
+        dy = dy_func(t)
+        
         direction = np.pi/2-np.arctan2(dx,dy)
-        print(f' dx={dx:.2f},dy={dy:.2f}, direction = {direction:.2f}')
         return distance, np.where(direction < 0, direction + 2 * np.pi, direction), False
+    
+    def reward(self, distance, road_direction, carenv_theta, out_of_road):
+        if out_of_road:
+            return -100
+        else: 
+            ang_diff1 = abs(road_direction - carenv_theta)
+            ang_diff2 = min(ang_diff1,2*np.pi-ang_diff1)
+            ang_diff3 = np.cos(ang_diff2)
+            return 2*(self.settings.road_width  - distance)**2 + ang_diff3
 
 class CarEnv:
     def __init__(self, settings):
@@ -179,6 +204,16 @@ def Visualize(roadenv, carenv, settings):
         ax.plot(left_x, left_y, '-', color='gold')
         ax.plot(right_x, right_y, '-', color='gold')
         ax.plot(center_x, center_y, 'w--')
+        
+        # Add direction arrow for each segment
+        mid_point = len(t) // 2
+        mid_x, mid_y = center_x[mid_point], center_y[mid_point]
+        dx = center_x[mid_point + 1] - center_x[mid_point]
+        dy = center_y[mid_point + 1] - center_y[mid_point]
+        arrow_length = 0.3
+        ax.arrow(mid_x, mid_y, arrow_length * dx, arrow_length * dy,\
+                 head_width=0.1, head_length=0.1, fc='white', ec='white',\
+                 length_includes_head=True, zorder=3)
 
     ax.plot([], [], '-', color='gold', label='Road edge')
     ax.plot([], [], 'w--', label='Center line')
@@ -210,15 +245,19 @@ roadenv = RoadEnv(settings)
 carenv = CarEnv(settings)
 # move the car
 for i in range(50):
+    Visualize(roadenv, carenv, settings)
     action = input(f"Step number {i+1}, choose action: ")
     if action == 'q':
         break
     carenv.move(float(action))
     distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
-    distance, direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+    distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+    reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
+    
     if not  out_of_road:
         #round the direction to 2 decimal points
-        print(f"   Distance: {distance:.2f}, Direction: {direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(direction - carenv.theta):.2f}, Out of road: {out_of_road}")
+        print(f"   Distance: {distance:.2f}, Direction: {road_direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(road_direction - carenv.theta):.2f}, Out of road: {out_of_road}")
+        print(f"    reward = {reward} ")
         print(f" ")
     if i>2:
         plt.close('all')
@@ -228,4 +267,4 @@ for i in range(50):
 
 
 
-    Visualize(roadenv, carenv, settings)
+    

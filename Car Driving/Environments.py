@@ -10,8 +10,16 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 class Settings:
+    """Define settings of the environment such as course shape, course characteristics
+       possible actions, position, neural-network parameters and training parameters
+
+    Example usage:
+        > settings = Settings()
+    """
     def __init__(self):
-        # road settings
+        # Define road segments, this whole sequence is an ellipsis course
+        # Starts with straight horizontal line, draw elliptical section 
+        # then another straight line and then close with another ellipsis
         self.road_segments = [
             {
                 'x': lambda t: t,
@@ -38,15 +46,20 @@ class Settings:
                 't_end': 22
             }
         ]
+        # Define road parameters such as width and length
         self.road_width    = 1
         self.road_length   = 15
+        # Closed is a boolean that indicates whether the circuit is closed
+        # (I presume)
         self.closed        = False
-        self.road_resulotion = 100
+        # Road resolutions refers to how coarse the grid that constitutes the
+        # course is (affects number of states)
+        self.road_resolution = 100
 
 
         # car settings
 
-        # car initail position
+        # car initial position
         self.init_car_x = 4
         self.init_car_y = 0
         self.init_car_theta = 0
@@ -64,6 +77,7 @@ class Settings:
         ## NN
         self.state_dim = self.n_sensors  * self.max_sensor_range / self.resolution   # State dimension is the number of sensor
         self.Hidden_layers = [32, 16]
+        # Define the gamma and alpha
         self.gamma  = .95
         self.alpha  = .95
                  
@@ -72,13 +86,27 @@ class Settings:
         self.lr      = 0.001
         self.num_episodes = 100
 
-
 class RoadEnv:
+    """Define Environment of the road. Requires a Settings object to function
+
+    Example usage:
+        > settings = Settings()
+        > roadenv = RoadEnv(settings)
+    """
     def __init__(self, settings):
+        # Explain what t is
         self.settings = settings
         self.t = sp.Symbol('t')
 
     def get_road_limits(self):
+        """
+        Args:
+            self: RoadEnv object
+        
+        Outputs:
+            road_limits: List of three vectorized lambda functions that track the 
+                        road limits to the left, right and center respectively
+        """
         road_limits = {'left': [], 'right': [], 'center': []}
 
         for segment in self.settings.road_segments:
@@ -112,6 +140,17 @@ class RoadEnv:
         return road_limits
 
     def distance_road_center(self, x, y):
+        """ Tracks distance from a point in the road to the center of the road
+        Args:
+            self: RoadEnv object
+            x: float, position of the point in the road in the x-axis
+            y: float, position of the point in the road in the y-axis
+        
+        Outputs:
+            min_distance: float, minimum 
+            closest_segment: integer, index of the segment of the road that is closest to the point
+            closest_t: sympy Symbol, part of the segment that is closest 
+        """
         min_distance = float('inf')
         closest_segment = None
         closest_t = None
@@ -133,10 +172,26 @@ class RoadEnv:
 
         return min_distance, closest_segment, closest_t
 
-
     def road_direction_and_terminal(self, distance, segment, t):
+        """
+        Args:
+            self: RoadEnv object
+            distance: float, distance from center
+            segment: sympy lambda function, segment of the road
+            t: sympy Symbol
+        
+        Outputs:
+            distance: float or None, distance from the center
+                      evaluates to None if the position is out of bounds
+                      
+            directions: np.array, array with the possible directions in the road. They are positive by construction
+            
+            out_of_road: boolean, evaluates to True if out of bounds
+            
+        """
+        distance, positions, out_of_bounds = None, None, True
         if distance > self.settings.road_width / 2:
-            return None, None, True
+            return distance, positions, out_of_road
 
         # Calculate the direction of the road at the closest point
         segment = self.settings.road_segments[segment]
@@ -153,63 +208,82 @@ class RoadEnv:
         dy = dy_func(t)
         
         direction = np.pi/2-np.arctan2(dx,dy)
-        return distance, np.where(direction < 0, direction + 2 * np.pi, direction), False
+        directions = np.where(direction < 0, direction + 2 * np.pi, direction)
+        on_road = False
+        return distance, directions, out_of_road
     
     def reward(self, distance, road_direction, carenv_theta, out_of_road):
-        if out_of_road:
-            return -100
-        else: 
+        """
+        Args:
+            self: RoadEnv object
+            distance: float, distance from center
+            directions:np.array, array with the possible directions in the road. They are positive by construction
+            carenv_theta: float, angle          
+            out_of_road: boolean, evaluates to True if out of bounds
+        Outputs:
+            reward: float, reward from the state action pair
+            
+        """
+        reward = -100
+        if not out_of_road:
             ang_diff1 = abs(road_direction - carenv_theta)
             ang_diff2 = min(ang_diff1,2*np.pi-ang_diff1)
             ang_diff3 = np.cos(ang_diff2)
-            return 2*(self.settings.road_width  - distance)**2 + ang_diff3
+            reward = 2*(self.settings.road_width  - distance)**2 + ang_diff3
+        return reward
 
 class CarEnv:
+    """Define Environment of the car. Requires a Settings object to function
+
+    Example usage:
+        > settings = Settings()
+        > carenv = CarEnv(settings)
+    """
     def __init__(self, settings):
         self.settings = settings
         self.x = settings.init_car_x
         self.y = settings.init_car_y
         self.theta = settings.init_car_theta
         self.speed = settings.init_car_speed
-        self.trejectory = [(self.x, self.y)]
+        self.trajectory = [(self.x, self.y)]
 
-    def car_reset():
+    def car_reset(self):
         self.x = settings.init_car_x
         self.y = settings.init_car_y
         self.theta = settings.init_car_theta
         self.speed = settings.init_car_speed
-        self.trejectory = [(self.x, self.y)]
-        self.Terminal = False
+        self.trajectory = [(self.x, self.y)]
 
     def move(self, steering_angle):
+        """
+        Args:
+            self: CarEnv object
+            steering_angle: float, angle to steer the car
+            
+        """
         # Update the car position
         self.x += self.speed * np.cos(self.theta)
         self.y += self.speed * np.sin(self.theta)
         self.theta = (self.theta +steering_angle) % (2 * np.pi)
-        self.trejectory.append((self.x, self.y))
-
-    def step(self, action):
-        distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
-        distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
-        reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
-        if out_of_road:
-            self.Terminal = True
-        return self.get_state(), reward
-
-    def get_state(self): #need to implement the sensors
-        return 1
-
+        self.trajectory.append((self.x, self.y))
         
         
 
 
 def Visualize(roadenv, carenv, settings):
+    """
+    Args:
+        roadenv: RoadEnv object
+        carenv: CarEnv object
+        settings: Settings object
+        
+    """
     road_limits = roadenv.get_road_limits()
 
     fig, ax = plt.subplots(figsize=(12, 12))
 
     for i, segment in enumerate(settings.road_segments):
-        t = np.linspace(segment['t_start'], segment['t_end'], settings.road_resulotion)
+        t = np.linspace(segment['t_start'], segment['t_end'], settings.road_resolution)
 
         left_x, left_y = road_limits['left'][i](t)
         right_x, right_y = road_limits['right'][i](t)
@@ -245,7 +319,7 @@ def Visualize(roadenv, carenv, settings):
     arrow_length = 0.3
     ax.arrow(carenv.x, carenv.y, arrow_length*np.cos(carenv.theta), arrow_length*np.sin(carenv.theta),
              head_width=0.2, head_length=0.1, fc='r', ec='r', label='Car')
-    ax.plot(*zip(*carenv.trejectory), 'r--', label='Trajectory')
+    ax.plot(*zip(*carenv.trajectory), 'r--', label='Trajectory')
 
     ax.grid(True)
     plt.tight_layout()

@@ -133,6 +133,7 @@ class RoadEnv:
 
         return min_distance, closest_segment, closest_t
 
+
     def road_direction_and_terminal(self, distance, segment, t):
         if distance > self.settings.road_width / 2:
             return None, None, True
@@ -178,6 +179,7 @@ class CarEnv:
         self.theta = settings.init_car_theta
         self.speed = settings.init_car_speed
         self.trejectory = [(self.x, self.y)]
+        self.Terminal = False
 
     def move(self, steering_angle):
         # Update the car position
@@ -185,6 +187,18 @@ class CarEnv:
         self.y += self.speed * np.sin(self.theta)
         self.theta = (self.theta +steering_angle) % (2 * np.pi)
         self.trejectory.append((self.x, self.y))
+
+    def step(self, action):
+        distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
+        distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+        reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
+        if out_of_road:
+            self.Terminal = True
+        return self.get_state(), reward
+
+    def get_state(self): #need to implement the sensors
+        return 1
+
         
         
 

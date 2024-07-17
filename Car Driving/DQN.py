@@ -82,7 +82,7 @@ class PolicyNetwork(nn.Module):
 
             while not self.car_env.Terminal:
                 action = self.get_action(state)
-                next_state, reward = self.car_env.step(action)
+                next_state, reward = self.car_env.step(self.car_env.actions[action])
                 next_state = torch.FloatTensor(next_state).to(self.device)
 
                 total_reward += reward

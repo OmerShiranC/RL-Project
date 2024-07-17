@@ -189,8 +189,8 @@ class RoadEnv:
             out_of_road: boolean, evaluates to True if out of bounds
             
         """
-        distance, positions, out_of_bounds = None, None, True
         if distance > self.settings.road_width / 2:
+            distance, positions, out_of_road = None, None, True
             return distance, positions, out_of_road
 
         # Calculate the direction of the road at the closest point
@@ -209,7 +209,7 @@ class RoadEnv:
         
         direction = np.pi/2-np.arctan2(dx,dy)
         directions = np.where(direction < 0, direction + 2 * np.pi, direction)
-        on_road = False
+        out_of_road = False
         return distance, directions, out_of_road
     
     def reward(self, distance, road_direction, carenv_theta, out_of_road):

@@ -63,6 +63,7 @@ class Settings:
         self.init_car_x = 4
         self.init_car_y = 0
         self.init_car_theta = 0
+
         self.init_car_speed = .25
         
         #sensors
@@ -229,7 +230,7 @@ class RoadEnv:
             ang_diff1 = abs(road_direction - carenv_theta)
             ang_diff2 = min(ang_diff1,2*np.pi-ang_diff1)
             ang_diff3 = np.cos(ang_diff2)
-            reward = 2*(self.settings.road_width  - distance)**2 + ang_diff3
+            reward = -(self.settings.road_width  - distance)**2 + ang_diff3
         return reward
 
 class CarEnv:
@@ -266,8 +267,42 @@ class CarEnv:
         self.y += self.speed * np.sin(self.theta)
         self.theta = (self.theta +steering_angle) % (2 * np.pi)
         self.trajectory.append((self.x, self.y))
-        
-        
+
+    def get_state(self): # go over this function
+        """
+        Args:
+            self: CarEnv object
+
+        Outputs:
+            state: np.array, array with the state of the car
+        """
+        state = np.zeros(self.settings.n_sensors)
+        for i in range(self.settings.n_sensors):
+            angle = (i - self.settings.n_sensors//2) * self.settings.resolution
+            x_sensor = self.x + self.settings.max_sensor_range * np.cos(self.theta + angle)
+            y_sensor = self.y + self.settings.max_sensor_range * np.sin(self.theta + angle)
+            distance, _, _ = roadenv.distance_road_center(x_sensor, y_sensor)
+            state[i] = distance
+        return state
+
+    def step(self, action): # go over this function
+        """
+        Args:
+            self: CarEnv object
+            action: float, action to take
+
+        Outputs:
+            next_state: np.array, array with the state of the car after the action
+            reward: float, reward from the state action pair
+        """
+        self.move(action)
+        state = self.get_state()
+        distance, closest_segment, closest_t = roadenv.distance_road_center(self.x, self.y)
+        distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+        reward = roadenv.reward(distance, road_direction, self.theta, out_of_road)
+        return state, reward
+
+
 
 
 def Visualize(roadenv, carenv, settings):
@@ -327,6 +362,37 @@ def Visualize(roadenv, carenv, settings):
 
 
 
+def get_and_process_action(prompt, a, b):
+  """
+  Prompts the user for a float within the specified range (a, b) or 'q' to quit.
+  Processes the valid action and returns None if the user quits.
+
+  Args:
+      prompt: The message to display to the user.
+      a: The lower bound of the valid range (inclusive).
+      b: The upper bound of the valid range (inclusive).
+
+  Returns:
+      None if the user quits, otherwise the processed action (replace with your actual logic).
+  """
+
+  while True:
+    user_input = input(prompt)
+    if user_input.lower() == 'q':
+      return None  # Indicate quitting
+    try:
+      value = float(user_input)
+      if a <= value <= b:
+        # Process the valid action (value) here
+        # Replace this comment with your actual processing logic
+        print(f"You entered: {value}")
+        return value
+      else:
+        print(f"Invalid input. Please enter a number between {a} and {b}.")
+    except ValueError:
+      print("Invalid input. Please enter a number or 'q' to quit.")
+
+
 
 settings = Settings()
 roadenv = RoadEnv(settings)
@@ -334,7 +400,10 @@ carenv = CarEnv(settings)
 # move the car
 for i in range(50):
     Visualize(roadenv, carenv, settings)
-    action = input(f"Step number {i+1}, choose action: ")
+    upper_bound = 2
+    lower_bound = -2
+    print('')
+    action =  get_and_process_action(f"Step number {i+1}, choose action: ", lower_bound,upper_bound)
     if action == 'q':
         break
     carenv.move(float(action))

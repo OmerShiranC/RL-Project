@@ -40,7 +40,7 @@ class PolicyNetwork(nn.Module):
 
 
     def get_action(self, state): # epsilon greedy
-        if np.randome.rand() < self.settings.epsilon:
+        if np.random.rand() < self.settings.epsilon:
             return np.random.choice(self.actions)
         else:
             state = torch.FloatTensor(state).to(self.device)
@@ -49,7 +49,7 @@ class PolicyNetwork(nn.Module):
             action = torch.argmax(action).item()
         return action
 
-   def plot_training_progress( all_rewards,first):
+   def plot_training_progress(all_rewards,first):
         if first:
             fig, ax = plt.subplots(figsize=(20, 7))
             line, = ax.plot([], [])

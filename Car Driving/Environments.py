@@ -173,13 +173,12 @@ class RoadEnv:
 
         return min_distance, closest_segment, closest_t
 
-    def road_direction_and_terminal(self, distance, segment, t):
+    def road_direction_and_terminal(self, x, y):
         """
         Args:
             self: RoadEnv object
-            distance: float, distance from center
-            segment: sympy lambda function, segment of the road
-            t: sympy Symbol
+            x: float, position of the point in the road in the x-axis
+            y: float, position of the point in the road in the y-axis
         
         Outputs:
             distance: float or None, distance from the center
@@ -190,6 +189,9 @@ class RoadEnv:
             out_of_road: boolean, evaluates to True if out of bounds
             
         """
+        distance, segment, t = roadenv.distance_road_center(x, y)
+
+
         if distance > self.settings.road_width / 2:
             distance, positions, out_of_road = None, None, True
             return distance, positions, out_of_road
@@ -240,13 +242,14 @@ class CarEnv:
         > settings = Settings()
         > carenv = CarEnv(settings)
     """
-    def __init__(self, settings):
+    def __init__(self, settings, roadenv):
         self.settings = settings
         self.x = settings.init_car_x
         self.y = settings.init_car_y
         self.theta = settings.init_car_theta
         self.speed = settings.init_car_speed
         self.trajectory = [(self.x, self.y)]
+        self.terminal = False
 
     def car_reset(self):
         self.x = settings.init_car_x
@@ -254,13 +257,13 @@ class CarEnv:
         self.theta = settings.init_car_theta
         self.speed = settings.init_car_speed
         self.trajectory = [(self.x, self.y)]
+        self.terminal = False
 
     def move(self, steering_angle):
         """
         Args:
             self: CarEnv object
             steering_angle: float, angle to steer the car
-            
         """
         # Update the car position
         self.x += self.speed * np.cos(self.theta)
@@ -268,7 +271,7 @@ class CarEnv:
         self.theta = (self.theta +steering_angle) % (2 * np.pi)
         self.trajectory.append((self.x, self.y))
 
-    def get_state(self): # go over this function
+    def get_state(self):
         """
         Args:
             self: CarEnv object
@@ -277,12 +280,19 @@ class CarEnv:
             state: np.array, array with the state of the car
         """
         state = np.zeros(self.settings.n_sensors)
-        for i in range(self.settings.n_sensors):
-            angle = (i - self.settings.n_sensors//2) * self.settings.resolution
-            x_sensor = self.x + self.settings.max_sensor_range * np.cos(self.theta + angle)
-            y_sensor = self.y + self.settings.max_sensor_range * np.sin(self.theta + angle)
-            distance, _, _ = roadenv.distance_road_center(x_sensor, y_sensor)
-            state[i] = distance
+        angles = np.linspace(-np.pi/2, np.pi/2, self.settings.n_sensors)
+        for angle in angles:
+            x_loc = self.x.copy()
+            y_loc = self.y.copy()
+            sensor_reading = 0
+            while sensor_reading < self.settings.max_sensor_range:
+                x_loc += self.settings.resolution*np.cos(self.theta + angle)
+                y_loc += self.settings.resolution*np.sin(self.theta + angle)
+                dis,_,_ = distance_road_center(self, x_loc, y_loc)
+                if dis < self.settings.road_width/2:
+                    break
+                sensor_reading += self.settings.resolution
+            state[angles.index(angle)] = sensor_reading
         return state
 
     def step(self, action): # go over this function
@@ -296,10 +306,14 @@ class CarEnv:
             reward: float, reward from the state action pair
         """
         self.move(action)
-        state = self.get_state()
-        distance, closest_segment, closest_t = roadenv.distance_road_center(self.x, self.y)
-        distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+        distance, road_direction, self.terminal = roadenv.road_direction_and_terminal(self.x, self.y)
         reward = roadenv.reward(distance, road_direction, self.theta, out_of_road)
+
+        if self.terminal:
+            state = self.get_state()
+        else:
+            state = None
+
         return state, reward
 
 
@@ -361,63 +375,56 @@ def Visualize(roadenv, carenv, settings):
     plt.show()
 
 
+def get_valid_input(a, b):
+    """
+    Get a valid integer input from the user between a and b
+    args:
+        param a: lower bound
+        param b: upper bound
+    return:
+        integer between a and b or 'q' to quit
+    """
+    while True:
+        user_input = input(f"Enter an integer between {a} and {b}, or 'q' to quit: ").strip().lower()
 
-def get_and_process_action(prompt, a, b):
-  """
-  Prompts the user for a float within the specified range (a, b) or 'q' to quit.
-  Processes the valid action and returns None if the user quits.
+        if user_input == 'q':
+            return 'q'
 
-  Args:
-      prompt: The message to display to the user.
-      a: The lower bound of the valid range (inclusive).
-      b: The upper bound of the valid range (inclusive).
+        try:
+            number = int(user_input)
+            if a <= number <= b:
+                return number
+            else:
+                print(f"Please enter a number between {a} and {b}.")
+        except ValueError:
+            print("Invalid input. Please enter a valid integer or 'q'.")
 
-  Returns:
-      None if the user quits, otherwise the processed action (replace with your actual logic).
-  """
-
-  while True:
-    user_input = input(prompt)
-    if user_input.lower() == 'q':
-      return None  # Indicate quitting
-    try:
-      value = float(user_input)
-      if a <= value <= b:
-        # Process the valid action (value) here
-        # Replace this comment with your actual processing logic
-        print(f"You entered: {value}")
-        return value
-      else:
-        print(f"Invalid input. Please enter a number between {a} and {b}.")
-    except ValueError:
-      print("Invalid input. Please enter a number or 'q' to quit.")
-
-
-
-settings = Settings()
-roadenv = RoadEnv(settings)
-carenv = CarEnv(settings)
-# move the car
-for i in range(50):
-    Visualize(roadenv, carenv, settings)
-    upper_bound = 2
-    lower_bound = -2
-    print('')
-    action =  get_and_process_action(f"Step number {i+1}, choose action: ", lower_bound,upper_bound)
-    if action == 'q':
-        break
-    carenv.move(float(action))
-    distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
-    distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
-    reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
-    
-    if not  out_of_road:
-        #round the direction to 2 decimal points
-        print(f"   Distance: {distance:.2f}, Direction: {road_direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(road_direction - carenv.theta):.2f}, Out of road: {out_of_road}")
-        print(f"    reward = {reward} ")
-        print(f" ")
-    if i>2:
-        plt.close('all')
+#
+#
+# settings = Settings()
+# roadenv = RoadEnv(settings)
+# carenv = CarEnv(settings)
+# # move the car
+# for i in range(50):
+#     Visualize(roadenv, carenv, settings)
+#     upper_bound = 2
+#     lower_bound = -2
+#     print('')
+#     action =  get_and_process_action(f"Step number {i+1}, choose action: ", lower_bound,upper_bound)
+#     if action == 'q':
+#         break
+#     carenv.move(float(action))
+#     distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
+#     distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
+#     reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
+#
+#     if not  out_of_road:
+#         #round the direction to 2 decimal points
+#         print(f"   Distance: {distance:.2f}, Direction: {road_direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(road_direction - carenv.theta):.2f}, Out of road: {out_of_road}")
+#         print(f"    reward = {reward} ")
+#         print(f" ")
+#     if i>2:
+#         plt.close('all')
         
 
 

@@ -2,6 +2,31 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import os
+import subprocess
+import sys
+
+def get_device():
+    if 'COLAB_TPU_ADDR' in os.environ:
+        print("TPU detected. Setting up TPU...")
+        try:
+            import torch_xla.core.xla_model as xm
+            return xm.xla_device()
+        except ImportError:
+            print("TPU libraries not found. Installing required packages...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install",
+                                   "cloud-tpu-client==0.10",
+                                   "torch==1.13.0",
+                                   "https://storage.googleapis.com/tpu-pytorch/wheels/colab/torch_xla-1.13-cp38-cp38-linux_x86_64.whl"])
+            import torch_xla.core.xla_model as xm
+            return xm.xla_device()
+    elif torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
+
 
 class PolicyNetwork(nn.Module):
     def __init__(self, road_env, carenv, settings, train_mode):
@@ -12,7 +37,7 @@ class PolicyNetwork(nn.Module):
         self.train_mode = train_mode
 
         # Define the device
-        self.device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+        self.device = get_device()
 
         # Define the neural network
         super(PolicyNetwork, self).__init__()
@@ -21,7 +46,7 @@ class PolicyNetwork(nn.Module):
         layers = []
 
         # Input layer
-        layers.append(nn.Linear(self.settings.state_dim, hidden_layer[0]))
+        layers.append(nn.Linear(self.settings.n_sensors, hidden_layer[0]))
         layers.append(nn.ReLU())
 
         # Hidden layers
@@ -48,8 +73,7 @@ class PolicyNetwork(nn.Module):
                 action = self.forward(state)
             action = torch.argmax(action).item()
         return action
-
-   def plot_training_progress(all_rewards,first):
+    def plot_training_progress(all_rewards,first):
         if first:
             fig, ax = plt.subplots(figsize=(20, 7))
             line, = ax.plot([], [])

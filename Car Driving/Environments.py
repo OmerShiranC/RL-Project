@@ -244,6 +244,7 @@ class CarEnv:
     """
     def __init__(self, settings, roadenv):
         self.settings = settings
+        self.roadenv = roadenv
         self.x = settings.init_car_x
         self.y = settings.init_car_y
         self.theta = settings.init_car_theta
@@ -306,8 +307,8 @@ class CarEnv:
             reward: float, reward from the state action pair
         """
         self.move(action)
-        distance, road_direction, self.terminal = roadenv.road_direction_and_terminal(self.x, self.y)
-        reward = roadenv.reward(distance, road_direction, self.theta, out_of_road)
+        distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
+        reward = self.roadenv.reward(distance, road_direction, self.theta, out_of_road)
 
         if self.terminal:
             state = self.get_state()

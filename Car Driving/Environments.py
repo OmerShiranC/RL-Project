@@ -189,7 +189,7 @@ class RoadEnv:
             out_of_road: boolean, evaluates to True if out of bounds
             
         """
-        distance, segment, t = roadenv.distance_road_center(x, y)
+        distance, segment, t = self.distance_road_center(x, y)
 
 
         if distance > self.settings.road_width / 2:
@@ -308,7 +308,7 @@ class CarEnv:
         """
         self.move(action)
         distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
-        reward = self.roadenv.reward(distance, road_direction, self.theta, out_of_road)
+        reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal)
 
         if self.terminal:
             state = self.get_state()
@@ -330,7 +330,7 @@ def Visualize(roadenv, carenv, settings):
     """
     road_limits = roadenv.get_road_limits()
 
-    fig, ax = plt.subplots(figsize=(12, 12))
+    fig, ax = plt.subplots(figsize=(12, 7))
 
     for i, segment in enumerate(settings.road_segments):
         t = np.linspace(segment['t_start'], segment['t_end'], settings.road_resolution)

@@ -60,8 +60,8 @@ class Settings:
 
         #sensors
         self.n_sensors = 7
-        self.resolution = .3
-        self.max_sensor_range = 3
+        self.resolution = .1
+        self.max_sensor_range = 5
 
         #actions
         self.action_dim = 7  # Actions for steering
@@ -69,36 +69,39 @@ class Settings:
 
         ## NN
         self.state_dim = self.n_sensors  * self.max_sensor_range / self.resolution   # State dimension is the number of sensor
-        self.Hidden_layers = [32, 16]
+        self.hidden_layers = [32, 16]
         # Define the gamma and alpha
         self.gamma  = .95
         self.alpha  = .95
 
         # training
         self.epsilon = 0.05
-        self.lr      = 0.001
+        self.learning_rate      = 0.001
         self.num_episodes = 100
 
 settings = Settings()
 roadenv = RoadEnv(settings)
 carenv = CarEnv(settings, roadenv)
+NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True)
+
+NN.train(10)
 
 
-for i in range(50):
-    Visualize(roadenv, carenv, settings)
-    print('')
-    action_number =  get_valid_input(1,settings.action_dim)
-
-    action = settings.actions[action_number]
-    if action == 'q':
-        break
-    state, reward = carenv.step(action)
-    if carenv.terminal:
-        print(f"Episode {i+1} finished")
-        break
-    else:
-        print(f"Episode {i+1} ")
-        print(f'self.x: {carenv.x:.2f}  self.y: {carenv.y:.2f}')
-        print(f'direction: {carenv.theta:.2f}   reward: {reward:.2f}    action: {action:.2f}    action_number: {action_number}')
-        print(f'self.terminal: {carenv.terminal:.2f}')
-        print(f'state: {state}')
+# for i in range(50):
+#     Visualize(roadenv, carenv, settings)
+#     print('')
+#     action_number =  get_valid_input(1,settings.action_dim)
+#
+#     action = settings.actions[action_number]
+#     if action == 'q':
+#         break
+#     state, reward = carenv.step(action)
+#     if carenv.terminal:
+#         print(f"Episode {i+1} finished")
+#         break
+#     else:
+#         print(f"Episode {i+1} ")
+#         print(f'self.x: {carenv.x:.2f}  self.y: {carenv.y:.2f}')
+#         print(f'direction: {carenv.theta:.2f}   reward: {reward:.2f}    action: {action:.2f}    action_number: {action_number}')
+#         print(f'self.terminal: {carenv.terminal:.2f}')
+#         print(f'state: {state}')

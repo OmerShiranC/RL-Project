@@ -6,6 +6,10 @@ import os
 import subprocess
 import sys
 
+import matplotlib.pyplot as plt
+from IPython import display
+import numpy as np
+
 def get_device():
     if 'COLAB_TPU_ADDR' in os.environ:
         print("TPU detected. Setting up TPU...")
@@ -29,10 +33,9 @@ def get_device():
 
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, road_env, carenv, settings, train_mode):
-        self.actions = actions
+    def __init__(self, road_env, car_env, settings, train_mode):
         self.road_env = road_env
-        self.carenv = carenv
+        self.car_env = car_env
         self.settings = settings
         self.train_mode = train_mode
 
@@ -46,53 +49,39 @@ class PolicyNetwork(nn.Module):
         layers = []
 
         # Input layer
-        layers.append(nn.Linear(self.settings.n_sensors, hidden_layer[0]))
+        layers.append(nn.Linear(self.settings.n_sensors, self.settings.hidden_layers[0]))
         layers.append(nn.ReLU())
 
         # Hidden layers
-        for i in range(len(hidden_layers) - 1):
-            layers.append(nn.Linear(hidden_layers[i], hidden_layers[i + 1]))
+        for i in range(len(self.settings.hidden_layers) - 1):
+            layers.append(nn.Linear(self.settings.hidden_layers[i], self.settings.hidden_layers[i + 1]))
             layers.append(nn.ReLU())
 
         # Output layer
-        layers.append(nn.Linear(hidden_layers[-1], self.settings.action_dim))
+        layers.append(nn.Linear(self.settings.hidden_layers[-1], self.settings.action_dim))
 
         # Combine all layers
         self.model = nn.Sequential(*layers).to(self.device)
 
     def forward(self, state):
+        state = state.to(self.device)
         return self.model(state)
 
 
     def get_action(self, state): # epsilon greedy
         if np.random.rand() < self.settings.epsilon:
-            return np.random.choice(self.actions)
+            return np.random.choice(self.settings.actions)
         else:
-            state = torch.FloatTensor(state).to(self.device)
+            state = torch.tensor(state, dtype=torch.float32)
+            state = state.to(device=self.device)
             with torch.no_grad():
                 action = self.forward(state)
             action = torch.argmax(action).item()
-        return action
-    def plot_training_progress(all_rewards,first):
-        if first:
-            fig, ax = plt.subplots(figsize=(20, 7))
-            line, = ax.plot([], [])
-            ax.set_xlabel('Episode')
-            ax.set_ylabel('Total Reward')
-            ax.set_title('Training Progress')
-        else:
-            line.set_xdata(range(len(all_rewards)))
-            line.set_ydata(all_rewards)
-            ax.relim()
-            ax.autoscale_view()
-            display.clear_output(wait=True)
-            display.display(fig)
-            plt.pause(0.1)
-
+            return action
 
     def train(self, num_episodes):
         all_rewards = []
-        plot_training_progress(self, all_rewards, first=True)
+        plot_training_progress(all_rewards, first=True)
 
         # we can add more complex trainig rate scheduling
         optimizer = optim.Adam(self.model.parameters(), lr=self.settings.learning_rate)
@@ -101,33 +90,34 @@ class PolicyNetwork(nn.Module):
         for episode in range(num_episodes):
             total_reward = 0
 
-            state = self.carenv.reset()
-            state = torch.FloatTensor(self.car_env.get_state()).to(self.device)
+            state = self.car_env.car_reset()
+            state = torch.FloatTensor(self.car_env.get_state())
 
-            while not self.car_env.Terminal:
+            while not self.car_env.terminal:
                 action = self.get_action(state)
-                next_state, reward = self.car_env.step(self.car_env.actions[action])
+                next_state, reward = self.car_env.step(action)
                 next_state = torch.FloatTensor(next_state).to(self.device)
 
                 total_reward += reward
 
                 # Compute Q(s, a):
                 Q_values = self.forward(state)
-                Q_value = Q_values[action]
+                Q_value = Q_values[action]  # No need for np.round().astype(int) if action is already an integer
 
                 # Compute Q(s', a')
                 with torch.no_grad():
-                   next_Q_values = self.forward(next_state)
-                   next_Q_value = torch.max(next_Q_values)
+                    next_Q_values = self.forward(next_state)
+                    next_Q_value = torch.max(next_Q_values)
 
                 # Compute the target Q value
-                target_Q_value = reward + self.settings.gamma * next_Q_value*(1 - self.car_env.Terminal)
-                expected_Q_value = Q_value.clone()
-                expected_Q_value[0, action] = target_Q_value
+                target_Q_value = reward + self.settings.gamma * next_Q_value * (1 - self.car_env.terminal)
+
+                # Update the expected Q value
+                expected_Q_values = Q_values.clone()
+                expected_Q_values[action] = target_Q_value
 
                 # Compute the loss
-                loss = criterion(Q_values, expected_Q_value)
-
+                loss = criterion(Q_values, expected_Q_values)
                 # Update the model
                 optimizer.zero_grad()
                 loss.backward()
@@ -142,10 +132,20 @@ class PolicyNetwork(nn.Module):
         torch.save(self.model.state_dict(), 'car_policy_model.pth')
         print('Model saved successfully')
 
-
-
-
-
-
-
-
+def plot_training_progress(all_rewards, first):
+    if first:
+        fig, ax = plt.subplots(figsize=(20, 7))
+        line, = ax.plot([], [])
+        ax.set_xlabel('Episode')
+        ax.set_ylabel('Total Reward')
+        ax.set_title('Training Progress')
+    else:
+        if 'line' not in locals():
+            line, = ax.plot([], [])
+        line.set_xdata(range(len(all_rewards)))
+        line.set_ydata(all_rewards)
+        ax.relim()
+        ax.autoscale_view()
+        display.clear_output(wait=True)
+        display.display(fig)
+        plt.pause(0.1)

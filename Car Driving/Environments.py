@@ -253,10 +253,10 @@ class CarEnv:
         self.terminal = False
 
     def car_reset(self):
-        self.x = settings.init_car_x
-        self.y = settings.init_car_y
-        self.theta = settings.init_car_theta
-        self.speed = settings.init_car_speed
+        self.x = self.settings.init_car_x
+        self.y = self.settings.init_car_y
+        self.theta = self.settings.init_car_theta
+        self.speed = self.settings.init_car_speed
         self.trajectory = [(self.x, self.y)]
         self.terminal = False
 
@@ -280,20 +280,20 @@ class CarEnv:
         Outputs:
             state: np.array, array with the state of the car
         """
-        state = np.zeros(self.settings.n_sensors)
+        state = []
         angles = np.linspace(-np.pi/2, np.pi/2, self.settings.n_sensors)
         for angle in angles:
-            x_loc = self.x.copy()
-            y_loc = self.y.copy()
+            x_loc = self.x
+            y_loc = self.y
             sensor_reading = 0
             while sensor_reading < self.settings.max_sensor_range:
                 x_loc += self.settings.resolution*np.cos(self.theta + angle)
                 y_loc += self.settings.resolution*np.sin(self.theta + angle)
-                dis,_,_ = distance_road_center(self, x_loc, y_loc)
-                if dis < self.settings.road_width/2:
+                dis,_,_ = self.roadenv.distance_road_center(x_loc, y_loc)
+                if dis > self.settings.road_width/2:
                     break
                 sensor_reading += self.settings.resolution
-            state[angles.index(angle)] = sensor_reading
+            state.append(sensor_reading)
         return state
 
     def step(self, action): # go over this function
@@ -310,10 +310,10 @@ class CarEnv:
         distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
         reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal)
 
-        if self.terminal:
-            state = self.get_state()
-        else:
-            state = None
+        # if not self.terminal:
+        state = self.get_state()
+        # else:
+        #     state = None
 
         return state, reward
 
@@ -400,32 +400,6 @@ def get_valid_input(a, b):
         except ValueError:
             print("Invalid input. Please enter a valid integer or 'q'.")
 
-#
-#
-# settings = Settings()
-# roadenv = RoadEnv(settings)
-# carenv = CarEnv(settings)
-# # move the car
-# for i in range(50):
-#     Visualize(roadenv, carenv, settings)
-#     upper_bound = 2
-#     lower_bound = -2
-#     print('')
-#     action =  get_and_process_action(f"Step number {i+1}, choose action: ", lower_bound,upper_bound)
-#     if action == 'q':
-#         break
-#     carenv.move(float(action))
-#     distance, closest_segment, closest_t = roadenv.distance_road_center(carenv.x, carenv.y)
-#     distance, road_direction, out_of_road = roadenv.road_direction_and_terminal(distance, closest_segment, closest_t)
-#     reward = roadenv.reward(distance, road_direction, carenv.theta, out_of_road)
-#
-#     if not  out_of_road:
-#         #round the direction to 2 decimal points
-#         print(f"   Distance: {distance:.2f}, Direction: {road_direction:.2f}, carenv.theta: {carenv.theta:.2f}, difection diff Direction: {abs(road_direction - carenv.theta):.2f}, Out of road: {out_of_road}")
-#         print(f"    reward = {reward} ")
-#         print(f" ")
-#     if i>2:
-#         plt.close('all')
         
 
 

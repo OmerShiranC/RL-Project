@@ -84,7 +84,7 @@ roadenv = RoadEnv(settings)
 carenv = CarEnv(settings, roadenv)
 NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True)
 
-NN.train(10)
+NN.train(6)
 
 
 # for i in range(50):

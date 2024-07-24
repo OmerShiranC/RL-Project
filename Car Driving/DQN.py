@@ -84,8 +84,6 @@ class PolicyNetwork(nn.Module):
 
     def train(self, num_episodes):
         all_rewards = []
-        plot_training_progress(all_rewards, first=True)
-
         # we can add more complex trainig rate scheduling
         optimizer = optim.Adam(self.model.parameters(), lr=self.settings.learning_rate)
         criterion = nn.MSELoss()
@@ -135,7 +133,9 @@ class PolicyNetwork(nn.Module):
             self.trajectories.append(self.car_env.trajectory)
 
             if episode % 3 == 0:
-                plot_training_progress(all_rewards, first=False)
+                # Close any existing plots
+                # plt.close('all')
+                plot_training_progress(all_rewards)
                 Visualize(self.road_env, self.car_env, self.settings, self.trajectories)
                 plt.ion()  # Turn on interactive mode
                 plt.show(block=False)  # Show the plot without blocking execution
@@ -145,14 +145,14 @@ class PolicyNetwork(nn.Module):
         torch.save(self.model.state_dict(), 'car_policy_model.pth')
         print('Model saved successfully')
 
-def plot_training_progress(all_rewards, first):
+def plot_training_progress(all_rewards):
     fig, ax = plt.subplots(figsize=(20, 7))
     line, = ax.plot([], [])
 
-    if first:
-        ax.set_xlabel('Episode')
-        ax.set_ylabel('Total Reward')
-        ax.set_title('Training Progress')
+
+    ax.set_xlabel('Episode')
+    ax.set_ylabel('Total Reward')
+    ax.set_title('Training Progress')
 
     line.set_xdata(range(len(all_rewards)))
     line.set_ydata(all_rewards)

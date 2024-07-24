@@ -300,13 +300,13 @@ class CarEnv:
         """
         Args:
             self: CarEnv object
-            action: float, action to take
+            action: int, action to take
 
         Outputs:
             next_state: np.array, array with the state of the car after the action
             reward: float, reward from the state action pair
         """
-        self.move(action)
+        self.move(self.settings.actions[action])
         distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
         reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal)
 
@@ -320,13 +320,13 @@ class CarEnv:
 
 
 
-def Visualize(roadenv, carenv, settings):
+def Visualize(roadenv, carenv, settings, trajectories):
     """
     Args:
         roadenv: RoadEnv object
         carenv: CarEnv object
         settings: Settings object
-        
+
     """
     road_limits = roadenv.get_road_limits()
 
@@ -342,7 +342,7 @@ def Visualize(roadenv, carenv, settings):
         ax.plot(left_x, left_y, '-', color='gold')
         ax.plot(right_x, right_y, '-', color='gold')
         ax.plot(center_x, center_y, 'w--')
-        
+
         # Add direction arrow for each segment
         mid_point = len(t) // 2
         mid_x, mid_y = center_x[mid_point], center_y[mid_point]
@@ -365,15 +365,26 @@ def Visualize(roadenv, carenv, settings):
     # Ensure the aspect ratio is equal
     ax.set_aspect('equal', 'box')
 
-    # Plot the car as an arrow and the trajectory in red
-    arrow_length = 0.3
-    ax.arrow(carenv.x, carenv.y, arrow_length*np.cos(carenv.theta), arrow_length*np.sin(carenv.theta),
-             head_width=0.2, head_length=0.1, fc='r', ec='r', label='Car')
-    ax.plot(*zip(*carenv.trajectory), 'r--', label='Trajectory')
+    if not trajectories:
+        # Plot the car as an arrow and the trajectory in red
+        arrow_length = 0.3
+        ax.arrow(carenv.x, carenv.y, arrow_length*np.cos(carenv.theta), arrow_length*np.sin(carenv.theta),
+                 head_width=0.2, head_length=0.1, fc='r', ec='r', label='Car')
+        ax.plot(*zip(*carenv.trajectory), 'r--', label='Trajectory')
+        ax.grid(True)
+        plt.tight_layout()
+        plt.show()
 
-    ax.grid(True)
-    plt.tight_layout()
-    plt.show()
+    else:
+        for trajectory in trajectories:
+            x_coords = [coord[0] for coord in trajectory]
+            y_coords = [coord[1] for coord in trajectory]
+            ax.plot(x_coords, y_coords, 'r--', label='Trajectory')
+            ax.grid(True)
+            plt.tight_layout()
+            plt.show(block=False)
+
+
 
 
 def get_valid_input(a, b):

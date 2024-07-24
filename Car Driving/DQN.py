@@ -1,4 +1,6 @@
 # Machine Learning and Deep Learning
+from Environments import Visualize
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -38,6 +40,7 @@ class PolicyNetwork(nn.Module):
         self.car_env = car_env
         self.settings = settings
         self.train_mode = train_mode
+        self.trajectories = []
 
         # Define the device
         self.device = get_device()
@@ -70,7 +73,7 @@ class PolicyNetwork(nn.Module):
 
     def get_action(self, state): # epsilon greedy
         if np.random.rand() < self.settings.epsilon:
-            return np.random.choice(self.settings.actions)
+            return np.random.randint(self.settings.action_dim)
         else:
             state = torch.tensor(state, dtype=torch.float32)
             state = state.to(device=self.device)
@@ -90,10 +93,13 @@ class PolicyNetwork(nn.Module):
         for episode in range(num_episodes):
             total_reward = 0
 
+
             state = self.car_env.car_reset()
             state = torch.FloatTensor(self.car_env.get_state())
+            step = 0
+            while not self.car_env.terminal and step < 1000:
+                step += 1
 
-            while not self.car_env.terminal:
                 action = self.get_action(state)
                 next_state, reward = self.car_env.step(action)
                 next_state = torch.FloatTensor(next_state).to(self.device)
@@ -126,26 +132,32 @@ class PolicyNetwork(nn.Module):
                 state = next_state
 
             all_rewards.append(total_reward)
-            if episode % 10 == 0:
+            self.trajectories.append(self.car_env.trajectory)
+
+            if episode % 3 == 0:
                 plot_training_progress(all_rewards, first=False)
-        #save the model
+                Visualize(self.road_env, self.car_env, self.settings, self.trajectories)
+                plt.ion()  # Turn on interactive mode
+                plt.show(block=False)  # Show the plot without blocking execution
+
+        #save the model and the settings
+        torch.save(self.settings, 'settings.pth')
         torch.save(self.model.state_dict(), 'car_policy_model.pth')
         print('Model saved successfully')
 
 def plot_training_progress(all_rewards, first):
+    fig, ax = plt.subplots(figsize=(20, 7))
+    line, = ax.plot([], [])
+
     if first:
-        fig, ax = plt.subplots(figsize=(20, 7))
-        line, = ax.plot([], [])
         ax.set_xlabel('Episode')
         ax.set_ylabel('Total Reward')
         ax.set_title('Training Progress')
-    else:
-        if 'line' not in locals():
-            line, = ax.plot([], [])
-        line.set_xdata(range(len(all_rewards)))
-        line.set_ydata(all_rewards)
-        ax.relim()
-        ax.autoscale_view()
-        display.clear_output(wait=True)
-        display.display(fig)
-        plt.pause(0.1)
+
+    line.set_xdata(range(len(all_rewards)))
+    line.set_ydata(all_rewards)
+    ax.relim()
+    ax.autoscale_view()
+    display.clear_output(wait=True)
+    display.display(fig)
+    plt.pause(0.1)

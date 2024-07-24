@@ -59,8 +59,8 @@ class Settings:
         self.init_car_speed = .25
 
         #sensors
-        self.n_sensors = 7
-        self.resolution = .1
+        self.n_sensors = 10
+        self.resolution = .05
         self.max_sensor_range = 5
 
         #actions
@@ -84,7 +84,7 @@ roadenv = RoadEnv(settings)
 carenv = CarEnv(settings, roadenv)
 NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True)
 
-NN.train(6)
+NN.train(50)
 
 
 # for i in range(50):

@@ -382,7 +382,8 @@ def Visualize(roadenv, carenv, settings, trajectories):
             ax.plot(x_coords, y_coords, 'r--', label='Trajectory')
             ax.grid(True)
             plt.tight_layout()
-            plt.show(block=False)
+            plt.ion()  # Turn on interactive mode
+            plt.show(block=False)  # Show the plot without blocking execution
 
 
 

@@ -7,6 +7,7 @@ import torch.optim as optim
 import os
 import subprocess
 import sys
+import json
 
 import matplotlib.pyplot as plt
 from IPython import display
@@ -132,13 +133,14 @@ class PolicyNetwork(nn.Module):
             all_rewards.append(total_reward)
             self.trajectories.append(self.car_env.trajectory)
 
-            if episode % 3 == 0:
+            if episode % 5 == 0:
                 # Close any existing plots
-                # plt.close('all')
-                plot_training_progress(all_rewards)
+                plt.close('all')
                 Visualize(self.road_env, self.car_env, self.settings, self.trajectories)
+                plot_training_progress(all_rewards)
                 plt.ion()  # Turn on interactive mode
                 plt.show(block=False)  # Show the plot without blocking execution
+
 
         #save the model and the settings
         torch.save(self.settings, 'settings.pth')

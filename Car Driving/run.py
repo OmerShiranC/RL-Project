@@ -82,7 +82,8 @@ class Settings:
 settings = Settings()
 roadenv = RoadEnv(settings)
 carenv = CarEnv(settings, roadenv)
-NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True)
+#Set resume to True if you want to resume training.
+NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True,resume=False)
 
 NN.train(50)
 

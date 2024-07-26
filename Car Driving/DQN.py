@@ -36,7 +36,7 @@ def get_device():
 
 
 class PolicyNetwork(nn.Module):
-    def __init__(self, road_env, car_env, settings, train_mode):
+    def __init__(self, road_env, car_env, settings, train_mode,resume):
         self.road_env = road_env
         self.car_env = car_env
         self.settings = settings
@@ -66,6 +66,12 @@ class PolicyNetwork(nn.Module):
 
         # Combine all layers
         self.model = nn.Sequential(*layers).to(self.device)
+
+        # Load model to resume training
+        if self.resume:
+            # Assumes you do not change name of the output
+            self.model.load_state_dict(torch.load('car_policy_model.pth'))
+            
 
     def forward(self, state):
         state = state.to(self.device)

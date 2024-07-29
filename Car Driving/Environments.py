@@ -267,7 +267,7 @@ class CarEnv:
         """
         Args:
             self: CarEnv object
-            steering_angle: float, angle to steer the car
+            steering_angle: float, angle to steer txhe car
         """
         steering_angle = 0
         print(f'action: {action}, car direction: {self.theta:.2f}, car speed: {self.speed:.2f}')

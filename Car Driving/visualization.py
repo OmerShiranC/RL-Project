@@ -93,7 +93,7 @@ def plot_training_progress(all_rewards):
 
 fig, (ax_reward, ax_trajectory) = plt.subplots(2, 1, figsize=(10, 8))
 
-def epoach_vis(all_rewards, roadenv, carenv, settings, trajectories, all_speeds):
+def epoch_vis(all_rewards, roadenv, carenv, settings, trajectories, all_speeds):
     """
     Updates the visualization with new data for each epoch.
 
@@ -164,4 +164,8 @@ def epoach_vis(all_rewards, roadenv, carenv, settings, trajectories, all_speeds)
     # Display updated plot
     plt.tight_layout()
     plt.draw()
+    #Save
+    plt.savefig('TrainingLoop.png')
     plt.pause(0.1)  # Adjust pause time as needed
+    
+    

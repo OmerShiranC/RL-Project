@@ -66,6 +66,7 @@ class PolicyNetwork(nn.Module):
 
         # Combine all layers
         self.model = nn.Sequential(*layers).to(self.device)
+        
 
         # Load model to resume training
         if self.resume:
@@ -142,12 +143,15 @@ class PolicyNetwork(nn.Module):
             self.trajectories.append(self.car_env.trajectory)
 
             if episode % 1 == 0:
-                epoach_vis(all_rewards, self.road_env, self.car_env, self.settings, self.trajectories, all_speeds)
+                epoch_vis(all_rewards, self.road_env, self.car_env, self.settings, self.trajectories, all_speeds)
 
 
 
         #save the model and the settings
         torch.save(self.model.state_dict(), 'model/car_policy_model.pth')
+        #torch.save(self.settings, 'settings.pth')
+        #torch.save(self.settings, 'settings.txt')
+        #torch.save(self.model.state_dict(), 'car_policy_model.pth')
         print('Model saved successfully')
 
 

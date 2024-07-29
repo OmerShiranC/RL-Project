@@ -75,7 +75,7 @@ class Settings:
         self.action_dim = 5  # Actions for steering
         self.actions = 0.5*np.linspace(-1,1,self.action_dim)
 
-        # add exeleration and deceleration
+        # add acceleration and deceleration
         self.action_dim += 2
         
         ## NN

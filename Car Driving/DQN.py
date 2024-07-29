@@ -1,5 +1,5 @@
 # Machine Learning and Deep Learning
-from Environments import Visualize
+from visualization import *
 
 import torch
 import torch.nn as nn
@@ -9,8 +9,7 @@ import subprocess
 import sys
 import json
 
-import matplotlib.pyplot as plt
-from IPython import display
+
 import numpy as np
 
 def get_device():
@@ -42,6 +41,7 @@ class PolicyNetwork(nn.Module):
         self.settings = settings
         self.train_mode = train_mode
         self.trajectories = []
+        self.resume = resume
 
         # Define the device
         self.device = get_device()
@@ -82,7 +82,7 @@ class PolicyNetwork(nn.Module):
         if np.random.rand() < self.settings.epsilon:
             return np.random.randint(self.settings.action_dim)
         else:
-            state = torch.tensor(state, dtype=torch.float32)
+            state = state.clone().detach().float()
             state = state.to(device=self.device)
             with torch.no_grad():
                 action = self.forward(state)
@@ -139,33 +139,13 @@ class PolicyNetwork(nn.Module):
             all_rewards.append(total_reward)
             self.trajectories.append(self.car_env.trajectory)
 
-            if episode % 5 == 0:
-                # Close any existing plots
-                plt.close('all')
-                Visualize(self.road_env, self.car_env, self.settings, self.trajectories)
-                plot_training_progress(all_rewards)
-                plt.ion()  # Turn on interactive mode
-                plt.show(block=False)  # Show the plot without blocking execution
+            if episode % 10 == 0:
+                epoach_vis(all_rewards, self.road_env, self.car_env, self.settings, self.trajectories)
+
 
 
         #save the model and the settings
-        torch.save(self.settings, 'settings.pth')
-        torch.save(self.model.state_dict(), 'car_policy_model.pth')
-        print('Model saved successfully')
-
-def plot_training_progress(all_rewards):
-    fig, ax = plt.subplots(figsize=(20, 7))
-    line, = ax.plot([], [])
+        torch.save(self.model.state_dict(), 'model/car_policy_model.pth')
+        print('Model and Settings saved successfully')
 
 
-    ax.set_xlabel('Episode')
-    ax.set_ylabel('Total Reward')
-    ax.set_title('Training Progress')
-
-    line.set_xdata(range(len(all_rewards)))
-    line.set_ydata(all_rewards)
-    ax.relim()
-    ax.autoscale_view()
-    display.clear_output(wait=True)
-    display.display(fig)
-    plt.pause(0.1)

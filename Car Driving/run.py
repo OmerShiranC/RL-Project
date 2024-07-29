@@ -1,5 +1,8 @@
+# pip install -r requirements.txt
+
 from Environments import *
 from DQN import *
+from visualization import *
 
 class Settings:
     """Define settings of the environment such as course shape, course characteristics

@@ -1,13 +1,13 @@
+from help_functions import get_valid_input
+
 import math
 import sympy as sp
 from sympy import N
 import numpy as np
 from scipy.optimize import minimize_scalar
 
-# Data Visualization
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
+
+
 
 class Settings:
     """Define settings of the environment such as course shape, course characteristics
@@ -215,7 +215,7 @@ class RoadEnv:
         out_of_road = False
         return distance, directions, out_of_road
     
-    def reward(self, distance, road_direction, carenv_theta, out_of_road):
+    def reward(self, distance, road_direction, carenv_theta, out_of_road,carenv_speed):
         """
         Args:
             self: RoadEnv object
@@ -232,7 +232,7 @@ class RoadEnv:
             ang_diff1 = abs(road_direction - carenv_theta)
             ang_diff2 = min(ang_diff1,2*np.pi-ang_diff1)
             ang_diff3 = np.cos(ang_diff2)
-            reward = -(self.settings.road_width  - distance)**2 + ang_diff3
+            reward = -(self.settings.road_width  - distance)**2 + ang_diff3+ 2*carenv_speed
         return reward
 
 class CarEnv:
@@ -308,7 +308,7 @@ class CarEnv:
         """
         self.move(self.settings.actions[action])
         distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
-        reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal)
+        reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal,self.speed)
 
         # if not self.terminal:
         state = self.get_state()
@@ -318,99 +318,6 @@ class CarEnv:
         return state, reward
 
 
-
-
-def Visualize(roadenv, carenv, settings, trajectories):
-    """
-    Args:
-        roadenv: RoadEnv object
-        carenv: CarEnv object
-        settings: Settings object
-
-    """
-    road_limits = roadenv.get_road_limits()
-
-    fig, ax = plt.subplots(figsize=(12, 7))
-
-    for i, segment in enumerate(settings.road_segments):
-        t = np.linspace(segment['t_start'], segment['t_end'], settings.road_resolution)
-
-        left_x, left_y = road_limits['left'][i](t)
-        right_x, right_y = road_limits['right'][i](t)
-        center_x, center_y = road_limits['center'][i](t)
-
-        ax.plot(left_x, left_y, '-', color='gold')
-        ax.plot(right_x, right_y, '-', color='gold')
-        ax.plot(center_x, center_y, 'w--')
-
-        # Add direction arrow for each segment
-        mid_point = len(t) // 2
-        mid_x, mid_y = center_x[mid_point], center_y[mid_point]
-        dx = center_x[mid_point + 1] - center_x[mid_point]
-        dy = center_y[mid_point + 1] - center_y[mid_point]
-        arrow_length = 0.3
-        ax.arrow(mid_x, mid_y, arrow_length * dx, arrow_length * dy,\
-                 head_width=0.1, head_length=0.1, fc='white', ec='white',\
-                 length_includes_head=True, zorder=3)
-
-    ax.plot([], [], '-', color='gold', label='Road edge')
-    ax.plot([], [], 'w--', label='Center line')
-
-    ax.set_facecolor('gray')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_title('Piecewise Road Visualization')
-    ax.legend()
-
-    # Ensure the aspect ratio is equal
-    ax.set_aspect('equal', 'box')
-
-    if not trajectories:
-        # Plot the car as an arrow and the trajectory in red
-        arrow_length = 0.3
-        ax.arrow(carenv.x, carenv.y, arrow_length*np.cos(carenv.theta), arrow_length*np.sin(carenv.theta),
-                 head_width=0.2, head_length=0.1, fc='r', ec='r', label='Car')
-        ax.plot(*zip(*carenv.trajectory), 'r--', label='Trajectory')
-        ax.grid(True)
-        plt.tight_layout()
-        plt.show()
-
-    else:
-        for trajectory in trajectories:
-            x_coords = [coord[0] for coord in trajectory]
-            y_coords = [coord[1] for coord in trajectory]
-            ax.plot(x_coords, y_coords, 'r--', label='Trajectory')
-            ax.grid(True)
-            plt.tight_layout()
-            plt.ion()  # Turn on interactive mode
-            plt.show(block=False)  # Show the plot without blocking execution
-
-
-
-
-def get_valid_input(a, b):
-    """
-    Get a valid integer input from the user between a and b
-    args:
-        param a: lower bound
-        param b: upper bound
-    return:
-        integer between a and b or 'q' to quit
-    """
-    while True:
-        user_input = input(f"Enter an integer between {a} and {b}, or 'q' to quit: ").strip().lower()
-
-        if user_input == 'q':
-            return 'q'
-
-        try:
-            number = int(user_input)
-            if a <= number <= b:
-                return number
-            else:
-                print(f"Please enter a number between {a} and {b}.")
-        except ValueError:
-            print("Invalid input. Please enter a valid integer or 'q'.")
 
         
 

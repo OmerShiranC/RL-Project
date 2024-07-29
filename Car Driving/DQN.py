@@ -53,7 +53,7 @@ class PolicyNetwork(nn.Module):
         layers = []
 
         # Input layer
-        layers.append(nn.Linear(self.settings.n_sensors, self.settings.hidden_layers[0]))
+        layers.append(nn.Linear(self.settings.state_dim, self.settings.hidden_layers[0]))
         layers.append(nn.ReLU())
 
         # Hidden layers
@@ -70,7 +70,7 @@ class PolicyNetwork(nn.Module):
         # Load model to resume training
         if self.resume:
             # Assumes you do not change name of the output
-            self.model.load_state_dict(torch.load('car_policy_model.pth'))
+            self.model.load_state_dict(torch.load('model/car_policy_model.pth'))
             
 
     def forward(self, state):
@@ -91,6 +91,7 @@ class PolicyNetwork(nn.Module):
 
     def train(self, num_episodes):
         all_rewards = []
+        all_speeds = []
         # we can add more complex trainig rate scheduling
         optimizer = optim.Adam(self.model.parameters(), lr=self.settings.learning_rate)
         criterion = nn.MSELoss()
@@ -102,7 +103,7 @@ class PolicyNetwork(nn.Module):
             state = self.car_env.car_reset()
             state = torch.FloatTensor(self.car_env.get_state())
             step = 0
-            while not self.car_env.terminal and step < 1000:
+            while not self.car_env.terminal and step < 500:
                 step += 1
 
                 action = self.get_action(state)
@@ -137,15 +138,16 @@ class PolicyNetwork(nn.Module):
                 state = next_state
 
             all_rewards.append(total_reward)
+            all_speeds.append(self.car_env.speed)
             self.trajectories.append(self.car_env.trajectory)
 
-            if episode % 10 == 0:
-                epoach_vis(all_rewards, self.road_env, self.car_env, self.settings, self.trajectories)
+            if episode % 1 == 0:
+                epoach_vis(all_rewards, self.road_env, self.car_env, self.settings, self.trajectories, all_speeds)
 
 
 
         #save the model and the settings
         torch.save(self.model.state_dict(), 'model/car_policy_model.pth')
-        print('Model and Settings saved successfully')
+        print('Model saved successfully')
 
 

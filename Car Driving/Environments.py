@@ -7,8 +7,6 @@ import numpy as np
 from scipy.optimize import minimize_scalar
 
 
-
-
 class Settings:
     """Define settings of the environment such as course shape, course characteristics
        possible actions, position, neural-network parameters and training parameters
@@ -64,7 +62,9 @@ class Settings:
         self.init_car_y = 0
         self.init_car_theta = 0
 
-        self.init_car_speed = .25
+        self.max_speed = 2
+        self.min_speed = .2
+        self.init_car_speed = .5
         
         #sensors
         self.n_sensors = 7
@@ -72,11 +72,14 @@ class Settings:
         self.max_sensor_range = 3
         
         #actions
-        self.action_dim = 7  # Actions for steering
+        self.action_dim = 5  # Actions for steering
         self.actions = 0.5*np.linspace(-1,1,self.action_dim)
+
+        # add exeleration and deceleration
+        self.action_dim += 2
         
         ## NN
-        self.state_dim = self.n_sensors  * self.max_sensor_range / self.resolution   # State dimension is the number of sensor
+        self.state_dim = self.n_sensors  + 1   # State dimension is the number of sensor + speed
         self.Hidden_layers = [32, 16]
         # Define the gamma and alpha
         self.gamma  = .95
@@ -232,7 +235,7 @@ class RoadEnv:
             ang_diff1 = abs(road_direction - carenv_theta)
             ang_diff2 = min(ang_diff1,2*np.pi-ang_diff1)
             ang_diff3 = np.cos(ang_diff2)
-            reward = -(self.settings.road_width  - distance)**2 + ang_diff3+ 2*carenv_speed
+            reward = -(self.settings.road_width  - distance)**2 + ang_diff3+ (2*(carenv_speed-3*self.settings.min_speed))**3
         return reward
 
 class CarEnv:
@@ -254,22 +257,34 @@ class CarEnv:
 
     def car_reset(self):
         self.x = self.settings.init_car_x
-        self.y = self.settings.init_car_y
-        self.theta = self.settings.init_car_theta
-        self.speed = self.settings.init_car_speed
+        self.y = self.settings.init_car_y + self.settings.road_width / 3 * np.random.uniform(-1, 1)
+        self.theta = self.settings.init_car_theta + .3 * np.random.uniform(-1, 1)
+        self.speed = self.settings.init_car_speed + .3 * np.random.uniform(-1, 1)
         self.trajectory = [(self.x, self.y)]
         self.terminal = False
 
-    def move(self, steering_angle):
+    def move(self, action):
         """
         Args:
             self: CarEnv object
             steering_angle: float, angle to steer the car
         """
+        steering_angle = 0
+        print(f'action: {action}, car direction: {self.theta:.2f}, car speed: {self.speed:.2f}')
+        if action == self.settings.action_dim - 1: #decelerate
+            self.speed = max(self.settings.min_speed, self.speed - 0.1)
+            print(f'      decelerate,   new speed: {self.speed :.2f}')
+        elif action == self.settings.action_dim - 2: #accelerate
+            self.speed = min(self.settings.max_speed, self.speed + 0.1)
+            print(f'      accelerate,   new speed: {self.speed :.2f}')
+        else:
+            steering_angle = self.settings.actions[action]
+            self.theta = (self.theta + steering_angle) % (2 * np.pi)
+            print(f'      steering_angle   , {steering_angle:.2f}, car new direction  {self.theta:.2f}')
+
         # Update the car position
         self.x += self.speed * np.cos(self.theta)
         self.y += self.speed * np.sin(self.theta)
-        self.theta = (self.theta +steering_angle) % (2 * np.pi)
         self.trajectory.append((self.x, self.y))
 
     def get_state(self):
@@ -294,6 +309,8 @@ class CarEnv:
                     break
                 sensor_reading += self.settings.resolution
             state.append(sensor_reading)
+        # Add speed to the state list
+        state.append(self.speed)
         return state
 
     def step(self, action): # go over this function
@@ -306,7 +323,7 @@ class CarEnv:
             next_state: np.array, array with the state of the car after the action
             reward: float, reward from the state action pair
         """
-        self.move(self.settings.actions[action])
+        self.move(action)
         distance, road_direction, self.terminal = self.roadenv.road_direction_and_terminal(self.x, self.y)
         reward = self.roadenv.reward(distance, road_direction, self.theta, self.terminal,self.speed)
 

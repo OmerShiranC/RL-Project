@@ -93,7 +93,7 @@ def plot_training_progress(all_rewards):
 
 fig, (ax_reward, ax_trajectory) = plt.subplots(2, 1, figsize=(10, 8))
 
-def epoach_vis(all_rewards, roadenv, carenv, settings, trajectories):
+def epoach_vis(all_rewards, roadenv, carenv, settings, trajectories, all_speeds):
     """
     Updates the visualization with new data for each epoch.
 
@@ -108,11 +108,25 @@ def epoach_vis(all_rewards, roadenv, carenv, settings, trajectories):
 
     # Update reward plot
     ax_reward.clear()  # Clear previous data
-    ax_reward.plot(range(len(all_rewards)), all_rewards)
+    ax_reward.plot(range(len(all_rewards)), all_rewards, label="Reward")
+
+    # Create a second y-axis for speed
+    ax_speed = ax_reward.twinx()
+
+    # Plot speed curve
+    ax_speed.plot(range(len(all_speeds)), all_speeds, color='orange', label="Speed")
+
+    # Set labels and title
     ax_reward.set_xlabel('Episode')
     ax_reward.set_ylabel('Total Reward')
+    ax_speed.set_ylabel('Average Speed')
+    ax_speed.set_ylim(0, settings.max_speed)
     ax_reward.set_title('Training Progress')
     ax_reward.grid(True)
+
+    # Adjust legend position to avoid overlap
+    ax_reward.legend(loc='upper left')
+    ax_speed.legend(loc='upper right')
 
     # Update trajectory plot
     ax_trajectory.clear()

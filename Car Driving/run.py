@@ -56,10 +56,12 @@ class Settings:
 
         # car initial position
         self.init_car_x = 4
-        self.init_car_y = 0
-        self.init_car_theta = 0
+        self.init_car_y = self.road_width / 3 * np.random.uniform(-1, 1)
+        self.init_car_theta = .3 * np.random.uniform(-1, 1)
 
-        self.init_car_speed = .25
+        self.max_speed = 2
+        self.min_speed = .2
+        self.init_car_speed = .5
 
         #sensors
         self.n_sensors = 10
@@ -67,11 +69,14 @@ class Settings:
         self.max_sensor_range = 5
 
         #actions
-        self.action_dim = 7  # Actions for steering
+        self.action_dim = 5  # Actions for steering
         self.actions = 0.5*np.linspace(-1,1,self.action_dim)
 
+        # add exeleration and deceleration
+        self.action_dim += 2
+
         ## NN
-        self.state_dim = self.n_sensors  * self.max_sensor_range / self.resolution   # State dimension is the number of sensor
+        self.state_dim = self.n_sensors  + 1   # State dimension is the number of sensor +speed
         self.hidden_layers = [32, 16]
         # Define the gamma and alpha
         self.gamma  = .95
@@ -86,9 +91,9 @@ settings = Settings()
 roadenv = RoadEnv(settings)
 carenv = CarEnv(settings, roadenv)
 #Set resume to True if you want to resume training.
-NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True,resume=False)
+NN = PolicyNetwork(roadenv, carenv, settings, train_mode=True,resume=True)
 
-NN.train(50)
+NN.train(5)
 
 
 # for i in range(50):

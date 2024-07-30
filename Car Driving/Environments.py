@@ -72,21 +72,22 @@ class Settings:
         self.max_sensor_range = 3
         
         #actions
-        self.action_dim = 5  # Actions for steering
-        self.actions = 0.5*np.linspace(-1,1,self.action_dim)
-
+        # Actions for steering times the speed
+        self.action_dim = 3*5
+        #self.actions = [(i,j) for i in 0.5*np.linspace(-1,1,self.action_dim) for j in (-1,0,1)]
+        self.actions = 0.5*np.linspace(-1,1,self.action_dim/3)
         # add acceleration and deceleration
-        self.action_dim += 2
+        #self.action_dim += 2
         
         ## NN
-        self.state_dim = self.n_sensors  + 1   # State dimension is the number of sensor + speed
+        self.state_dim = self.n_sensors   # State dimension is the number of sensor*speed action space cardinality
         self.Hidden_layers = [32, 16]
         # Define the gamma and alpha
         self.gamma  = .95
         self.alpha  = .95
                  
         # training
-        self.epsilon = 0.05
+        self.epsilon = 0.1
         self.lr      = 0.001
         self.num_episodes = 100
 
@@ -267,18 +268,18 @@ class CarEnv:
         """
         Args:
             self: CarEnv object
-            steering_angle: float, angle to steer txhe car
+            action: int, Action to take. It dictates both acceleration and steering angle
         """
-        steering_angle = 0
         print(f'action: {action}, car direction: {self.theta:.2f}, car speed: {self.speed:.2f}')
-        if action == self.settings.action_dim - 1: #decelerate
-            self.speed = max(self.settings.min_speed, self.speed - 0.1)
+        steering_angle = 0
+        if action < 5: #decelerate
+            self.speed = max(self.settings.min_speed, self.speed - 0.01)
             print(f'      decelerate,   new speed: {self.speed :.2f}')
-        elif action == self.settings.action_dim - 2: #accelerate
-            self.speed = min(self.settings.max_speed, self.speed + 0.1)
+        elif 5 <= action < 10: #accelerate
+            self.speed = min(self.settings.max_speed, self.speed + 0.01)
             print(f'      accelerate,   new speed: {self.speed :.2f}')
         else:
-            steering_angle = self.settings.actions[action]
+            steering_angle = self.settings.actions[action%5]
             self.theta = (self.theta + steering_angle) % (2 * np.pi)
             print(f'      steering_angle   , {steering_angle:.2f}, car new direction  {self.theta:.2f}')
 
@@ -317,7 +318,7 @@ class CarEnv:
         """
         Args:
             self: CarEnv object
-            action: int, action to take
+            action: tuple, action to take
 
         Outputs:
             next_state: np.array, array with the state of the car after the action

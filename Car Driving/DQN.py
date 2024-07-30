@@ -104,7 +104,7 @@ class PolicyNetwork(nn.Module):
             state = self.car_env.car_reset()
             state = torch.FloatTensor(self.car_env.get_state())
             step = 0
-            while not self.car_env.terminal and step < 500:
+            while not self.car_env.terminal and step < 5000:
                 step += 1
 
                 action = self.get_action(state)
